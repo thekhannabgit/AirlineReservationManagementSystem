@@ -1,0 +1,4 @@
+sqlalchemy==2.0.25
+pymongo==4.6.1
+pytest==8.0.2
+python-dotenv==1.0.0
