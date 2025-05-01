@@ -1,7 +1,12 @@
 import tkinter as tk
 from tkinter import ttk
-from .styles import configure_styles
-from .windows.auth_window import AuthWindow
+from presentation.styles import configure_styles
+from presentation.windows.auth_window import AuthWindow
+from presentation.windows.dashboard import Dashboard
+from presentation.windows.booking_window import BookingWindow
+from presentation.windows.flight_window import FlightWindow
+from presentation.windows.crew_window import CrewWindow
+from presentation.windows.reports_window import ReportsWindow
 
 
 class AirlineApp(tk.Tk):
@@ -12,28 +17,43 @@ class AirlineApp(tk.Tk):
         self.geometry("1200x800")
         configure_styles()
 
-        # Main container
-        container = ttk.Frame(self)
-        container.pack(fill=tk.BOTH, expand=True)
-        container.grid_rowconfigure(0, weight=1)
-        container.grid_columnconfigure(0, weight=1)
+        # Container for all windows
+        self.container = ttk.Frame(self)
+        self.container.pack(fill="both", expand=True)
+        self.container.grid_rowconfigure(0, weight=1)
+        self.container.grid_columnconfigure(0, weight=1)
 
-        # Initialize auth window
-        self.auth_window = AuthWindow(container, self)
-        self.auth_window.grid(row=0, column=0, sticky="nsew")
+        # Dictionary to hold window references
+        self.windows = {}
 
-        # Show auth window initially
-        self.auth_window.tkraise()
+        # Initialize all windows
+        self.init_windows()
 
+        # Show auth window first
+        self.show_window('AuthWindow')
 
-if __name__ == "__main__":
-    from database.initialization import initialize_database
-    from sqlalchemy.orm import sessionmaker
+    def init_windows(self):
+        from presentation.windows.auth_window import AuthWindow
+        from presentation.windows.dashboard import Dashboard
+        from presentation.windows.booking_window import BookingWindow
+        from presentation.windows.flight_window import FlightWindow
 
-    engine = initialize_database()
-    Session = sessionmaker(bind=engine)
-    session = Session()
+        windows = {
+            'AuthWindow': AuthWindow,
+            'Dashboard': Dashboard,
+            'BookingWindow': BookingWindow,
+            'FlightWindow': FlightWindow,
+            'CrewWindow': CrewWindow,
+            'ReportsWindow': ReportsWindow
+        }
 
-    app = AirlineApp(session)
-    app.mainloop()
-    session.close()
+        for name, WindowClass in windows.items():
+            window = WindowClass(self.container, self)
+            self.windows[name] = window
+            window.grid(row=0, column=0, sticky="nsew")
+
+    def show_window(self, window_name):
+        window = self.windows[window_name]
+        window.tkraise()
+        if hasattr(window, 'on_show'):
+            window.on_show()

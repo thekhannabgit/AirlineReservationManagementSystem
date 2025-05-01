@@ -1,4 +1,3 @@
-import tkinter as tk
 from tkinter import ttk
 
 
@@ -9,14 +8,15 @@ class Dashboard(ttk.Frame):
         self.create_widgets()
 
     def create_widgets(self):
-        # Main frame
         main_frame = ttk.Frame(self, padding=20)
-        main_frame.pack(expand=True)
+        main_frame.pack(fill="both", expand=True)
 
-        # Title
-        ttk.Label(main_frame, text="Dashboard", font=('Arial', 16, 'bold')).grid(row=0, column=0, columnspan=2, pady=10)
+        # Center the content using an inner frame
+        center_frame = ttk.Frame(main_frame)
+        center_frame.pack(expand=True)
 
-        # Buttons
+        ttk.Label(center_frame, text="SkyLink Dashboard", font=('Arial', 16)).pack(pady=20)
+
         buttons = [
             ("Flight Management", self.open_flight_window),
             ("Booking Management", self.open_booking_window),
@@ -24,29 +24,26 @@ class Dashboard(ttk.Frame):
             ("Reports", self.open_reports_window)
         ]
 
-        for i, (text, command) in enumerate(buttons, start=1):
-            ttk.Button(main_frame, text=text, command=command).grid(row=i, column=0, pady=5, sticky=tk.EW)
-
-    def open_flight_window(self):
-        from .flight_window import FlightWindow
-        flight_window = FlightWindow(self.master, self.controller)
-        flight_window.grid(row=0, column=0, sticky="nsew")
-        flight_window.tkraise()
+        for text, command in buttons:
+            btn = ttk.Button(
+                center_frame,
+                text=text,
+                command=command,
+                width=25,
+                style="Accent.TButton"
+            )
+            btn.pack(pady=10, ipady=5)
 
     def open_booking_window(self):
-        from .booking_window import BookingWindow
-        booking_window = BookingWindow(self.master, self.controller)
-        booking_window.grid(row=0, column=0, sticky="nsew")
-        booking_window.tkraise()
+        self.controller.show_window('BookingWindow')
+
+    def open_flight_window(self):
+        self.controller.show_window('FlightWindow')
 
     def open_crew_window(self):
-        from .crew_window import CrewWindow
-        crew_window = CrewWindow(self.master, self.controller)
-        crew_window.grid(row=0, column=0, sticky="nsew")
-        crew_window.tkraise()
+        from presentation.windows.crew_window import CrewWindow
+        self.controller.show_window('CrewWindow')
 
     def open_reports_window(self):
-        from .reports_window import ReportsWindow
-        reports_window = ReportsWindow(self.master, self.controller)
-        reports_window.grid(row=0, column=0, sticky="nsew")
-        reports_window.tkraise()
+        from presentation.windows.reports_window import ReportsWindow
+        self.controller.show_window('ReportsWindow')
