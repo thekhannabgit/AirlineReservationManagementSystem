@@ -1,9 +1,19 @@
+import datetime
+from sqlalchemy import Boolean
+
 from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 import enum
 
 Base = declarative_base()
+
+
+class UserRole(enum.Enum):
+    ADMIN = "Admin"
+    STAFF = "Staff"
+    USER = "User"
+
 
 class FlightStatus(enum.Enum):
     SCHEDULED = "Scheduled"
@@ -12,10 +22,24 @@ class FlightStatus(enum.Enum):
     ARRIVED = "Arrived"
     CANCELLED = "Cancelled"
 
+
 class CrewRole(enum.Enum):
     PILOT = "Pilot"
     COPILOT = "Co-Pilot"
     FLIGHT_ATTENDANT = "Flight Attendant"
+
+
+class User(Base):
+    __tablename__ = 'user'
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(50), unique=True, nullable=False)
+    password = Column(String(256), nullable=False)  # Store hashed passwords
+    email = Column(String(100), unique=True, nullable=False)
+    role = Column(Enum(UserRole), default=UserRole.USER)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+
 
 class Aircraft(Base):
     __tablename__ = 'aircraft'
