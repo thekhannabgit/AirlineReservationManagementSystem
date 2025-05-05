@@ -1,14 +1,7 @@
-# AirlineReservationManagementSystem
-Nabeel
 
-# SkyLink Airways Reservation System
+## 🚀 How to Run
 
-A comprehensive airline management system with:
-- Flight scheduling
-- Passenger booking
-- Crew management
-- Operational analytics
+1. **Install Requirements**:
 
-## Setup
-1. Install requirements: `pip install -r requirements.txt`
-2. Run main.py: `python main.py`
+```bash
+pip install -r requirements.txt
