@@ -1,8 +1,8 @@
-import os
-from presentation.app import AirlineApp
+# main.py
 from database.initialization import initialize_database
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text  # Added import
+from presentation.app import AirlineApp
+from sqlalchemy import text
 
 
 def main():
@@ -10,15 +10,21 @@ def main():
         print("Initializing database...")
         engine = initialize_database()
 
-        # Verify connection and data using SQLAlchemy text() for raw SQL
-        with engine.connect() as conn:
-            print("Database connection successful")
-            result = conn.execute(text("SELECT flight_number, status FROM flight"))
-            for row in result:
-                print(f"Flight {row.flight_number} - Status: {row.status}")
-
+        # Verify connection using ORM
         Session = sessionmaker(bind=engine)
         session = Session()
+
+        # Check if flights exist using ORM - query all flights first
+        from database.models import Flight
+        all_flights = session.query(Flight).all()
+        print(f"Database initialized successfully. Found {len(all_flights)} flights.")
+
+        # If you specifically want to check if any flights exist
+        first_flight = session.query(Flight).first()
+        if first_flight:
+            print(f"First flight: {first_flight.flight_number}")
+        else:
+            print("No flights found in database")
 
         print("Starting application...")
         app = AirlineApp(session)

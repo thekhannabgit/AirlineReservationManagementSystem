@@ -1,7 +1,9 @@
+# presentation/dialogs/flight_dialog.py
 import tkinter as tk
 from tkinter import ttk, messagebox
 from database.models import Flight
-from datetime import datetime
+from datetime import datetime, timedelta
+from presentation.widgets.date_picker import DatePicker
 
 
 class FlightDialog(tk.Toplevel):
@@ -10,7 +12,7 @@ class FlightDialog(tk.Toplevel):
         self.session = session
         self.callback = callback
         self.title("Add New Flight")
-        self.geometry("400x300")
+        self.geometry("500x400")
         self.create_widgets()
 
     def create_widgets(self):
@@ -35,28 +37,50 @@ class FlightDialog(tk.Toplevel):
 
         # Departure time
         ttk.Label(main_frame, text="Departure Time:").grid(row=3, column=0, sticky=tk.W, pady=5)
-        self.departure_time = ttk.Entry(main_frame)
+        self.departure_time = DatePicker(main_frame)
         self.departure_time.grid(row=3, column=1, sticky=tk.EW, padx=5, pady=5)
-        self.departure_time.insert(0, datetime.now().strftime("%Y-%m-%d %H:%M"))
+        self.departure_time.set_date(datetime.now().strftime("%Y-%m-%d"))
+
+        # Time entry
+        ttk.Label(main_frame, text="Time (HH:MM):").grid(row=4, column=0, sticky=tk.W, pady=5)
+        self.time_entry = ttk.Entry(main_frame)
+        self.time_entry.grid(row=4, column=1, sticky=tk.EW, padx=5, pady=5)
+        self.time_entry.insert(0, datetime.now().strftime("%H:%M"))
+
+        # Base price
+        ttk.Label(main_frame, text="Base Price:").grid(row=5, column=0, sticky=tk.W, pady=5)
+        self.base_price = ttk.Entry(main_frame)
+        self.base_price.grid(row=5, column=1, sticky=tk.EW, padx=5, pady=5)
+        self.base_price.insert(0, "100.00")
 
         # Buttons
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=4, column=0, columnspan=2, pady=10)
+        button_frame.grid(row=6, column=0, columnspan=2, pady=10)
 
         ttk.Button(button_frame, text="Save", command=self.save_flight).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Cancel", command=self.destroy).pack(side=tk.LEFT, padx=5)
 
+        # Configure grid weights
+        main_frame.columnconfigure(1, weight=1)
+
     def save_flight(self):
         try:
+            # Combine date and time
+            departure_datetime = datetime.strptime(
+                f"{self.departure_time.get_date()} {self.time_entry.get()}",
+                "%Y-%m-%d %H:%M"
+            )
+
             flight = Flight(
                 flight_number=self.flight_number.get(),
                 departure_airport_code=self.departure_airport.get(),
                 arrival_airport_code=self.arrival_airport.get(),
-                departure_time=datetime.strptime(self.departure_time.get(), "%Y-%m-%d %H:%M"),
-                arrival_time=datetime.strptime(self.departure_time.get(), "%Y-%m-%d %H:%M"),  # TODO: Calculate arrival
-                aircraft_id=1,  # TODO: Select aircraft
-                base_price=100.00  # TODO: Set proper price
+                departure_time=departure_datetime,
+                arrival_time=departure_datetime + timedelta(hours=2),  # Default 2-hour flight
+                aircraft_id=1,  # TODO: Add aircraft selection
+                base_price=float(self.base_price.get())
             )
+
             self.session.add(flight)
             self.session.commit()
             self.callback()

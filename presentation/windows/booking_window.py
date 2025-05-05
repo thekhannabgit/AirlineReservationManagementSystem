@@ -15,6 +15,7 @@ class BookingWindow(ttk.Frame):
         self.load_my_bookings()
 
     def create_widgets(self):
+        # Main frame
         main_frame = ttk.Frame(self, padding=20)
         main_frame.pack(fill="both", expand=True)
 
@@ -43,7 +44,8 @@ class BookingWindow(ttk.Frame):
         frame = ttk.Frame(parent, padding=10)
         frame.pack(fill="both", expand=True)
 
-        ttk.Label(frame, text="Available Flights", style="Subtitle.TLabel").pack(pady=10)
+        ttk.Label(frame, text="Available Flights",
+                  style="Subtitle.TLabel").pack(pady=10)
 
         # Treeview
         self.flight_tree = ttk.Treeview(
@@ -68,7 +70,8 @@ class BookingWindow(ttk.Frame):
             self.flight_tree.column(col_id, width=width, anchor=tk.CENTER)
 
         # Add scrollbar
-        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=self.flight_tree.yview)
+        scrollbar = ttk.Scrollbar(frame, orient="vertical",
+                                  command=self.flight_tree.yview)
         self.flight_tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         self.flight_tree.pack(side="left", fill="both", expand=True, pady=10)
@@ -85,7 +88,8 @@ class BookingWindow(ttk.Frame):
         frame = ttk.Frame(parent, padding=10)
         frame.pack(fill="both", expand=True)
 
-        ttk.Label(frame, text="My Bookings", style="Subtitle.TLabel").pack(pady=10)
+        ttk.Label(frame, text="My Bookings",
+                  style="Subtitle.TLabel").pack(pady=10)
 
         # Treeview
         self.bookings_tree = ttk.Treeview(
@@ -110,7 +114,8 @@ class BookingWindow(ttk.Frame):
             self.bookings_tree.column(col_id, width=width, anchor=tk.CENTER)
 
         # Add scrollbar
-        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=self.bookings_tree.yview)
+        scrollbar = ttk.Scrollbar(frame, orient="vertical",
+                                  command=self.bookings_tree.yview)
         self.bookings_tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         self.bookings_tree.pack(side="left", fill="both", expand=True, pady=10)
@@ -175,21 +180,27 @@ class BookingWindow(ttk.Frame):
             return
 
         try:
-            bookings = self.session.query(Booking) \
-                .join(Flight) \
-                .filter(Booking.passenger_id == self.controller.current_user.id) \
-                .order_by(Booking.booking_date.desc()) \
-                .all()
+            # Get passenger by current user's email
+            passenger = self.session.query(Passenger) \
+                .filter(Passenger.email == self.controller.current_user.email) \
+                .first()
 
-            for booking in bookings:
-                self.bookings_tree.insert("", "end", values=(
-                    booking.id,
-                    booking.flight.flight_number,
-                    booking.booking_date.strftime("%Y-%m-%d %H:%M"),
-                    booking.status,
-                    booking.seat_class,
-                    f"{(booking.final_price or booking.flight.base_price):.2f}"
-                ))
+            if passenger:
+                bookings = self.session.query(Booking) \
+                    .join(Flight) \
+                    .filter(Booking.passenger_id == passenger.id) \
+                    .order_by(Booking.booking_date.desc()) \
+                    .all()
+
+                for booking in bookings:
+                    self.bookings_tree.insert("", "end", values=(
+                        booking.id,
+                        booking.flight.flight_number,
+                        booking.booking_date.strftime("%Y-%m-%d %H:%M"),
+                        booking.status,
+                        booking.seat_class,
+                        f"{(booking.final_price or booking.flight.base_price):.2f}"
+                    ))
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load bookings: {str(e)}")
@@ -206,8 +217,6 @@ class BookingWindow(ttk.Frame):
             self,
             self.session,
             flight_data[0],  # flight number
-            flight_data[4],  # status
-            float(flight_data[5][1:]),  # price
             callback=self.load_my_bookings
         )
 

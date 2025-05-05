@@ -4,15 +4,10 @@ from tkinter import ttk, messagebox
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
-from database.models import Booking, Flight, Airport
+from database.models import Booking, Flight, Airport, Aircraft
 from config import settings
 from pymongo import MongoClient
 from presentation.plotly_chart import PlotlyChart
-
-
-
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
 class ReportsWindow(ttk.Frame):
@@ -30,7 +25,8 @@ class ReportsWindow(ttk.Frame):
         main_frame = ttk.Frame(self, padding=20)
         main_frame.pack(fill="both", expand=True)
 
-        ttk.Label(main_frame, text="Analytics Dashboard", style="Title.TLabel").pack(pady=10)
+        ttk.Label(main_frame, text="Analytics Dashboard",
+                  style="Title.TLabel").pack(pady=10)
 
         # Notebook for different reports
         self.notebook = ttk.Notebook(main_frame)
@@ -289,6 +285,7 @@ class ReportsWindow(ttk.Frame):
 
         try:
             flights = self.session.query(Flight) \
+                .join(Aircraft) \
                 .order_by(Flight.departure_time.desc()) \
                 .limit(10) \
                 .all()

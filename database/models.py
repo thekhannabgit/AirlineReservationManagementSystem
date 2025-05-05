@@ -1,19 +1,16 @@
+# database/models.py
 import datetime
-from sqlalchemy import Boolean
-
-from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Boolean, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 import enum
 
 Base = declarative_base()
 
-
 class UserRole(enum.Enum):
     ADMIN = "Admin"
     STAFF = "Staff"
     USER = "User"
-
 
 class FlightStatus(enum.Enum):
     SCHEDULED = "Scheduled"
@@ -22,27 +19,23 @@ class FlightStatus(enum.Enum):
     ARRIVED = "Arrived"
     CANCELLED = "Cancelled"
 
-
 class CrewRole(enum.Enum):
     PILOT = "Pilot"
     COPILOT = "Co-Pilot"
     FLIGHT_ATTENDANT = "Flight Attendant"
 
-
 class User(Base):
-    __tablename__ = 'user'
-
+    __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
     username = Column(String(50), unique=True, nullable=False)
-    password = Column(String(256), nullable=False)  # Store hashed passwords
+    password = Column(String(256), nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     role = Column(Enum(UserRole), default=UserRole.USER)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.now)
 
-
 class Aircraft(Base):
-    __tablename__ = 'aircraft'
+    __tablename__ = 'aircrafts'
     id = Column(Integer, primary_key=True)
     model = Column(String(50), nullable=False)
     capacity = Column(Integer, nullable=False)
@@ -50,7 +43,7 @@ class Aircraft(Base):
     flights = relationship("Flight", back_populates="aircraft")
 
 class Airport(Base):
-    __tablename__ = 'airport'
+    __tablename__ = 'airports'
     code = Column(String(3), primary_key=True)
     name = Column(String(100), nullable=False)
     city = Column(String(50), nullable=False)
@@ -68,22 +61,22 @@ class Crew(Base):
     assignments = relationship("CrewAssignment", back_populates="crew")
 
 class CrewAssignment(Base):
-    __tablename__ = 'crew_assignment'
+    __tablename__ = 'crew_assignments'
     id = Column(Integer, primary_key=True)
     crew_id = Column(Integer, ForeignKey('crew.id'))
-    flight_id = Column(Integer, ForeignKey('flight.id'))
+    flight_id = Column(Integer, ForeignKey('flights.id'))
     crew = relationship("Crew", back_populates="assignments")
     flight = relationship("Flight", back_populates="crew_assignments")
 
 class Flight(Base):
-    __tablename__ = 'flight'
+    __tablename__ = 'flights'
     id = Column(Integer, primary_key=True)
     flight_number = Column(String(10), unique=True, nullable=False)
-    departure_airport_code = Column(String(3), ForeignKey('airport.code'))
-    arrival_airport_code = Column(String(3), ForeignKey('airport.code'))
+    departure_airport_code = Column(String(3), ForeignKey('airports.code'))
+    arrival_airport_code = Column(String(3), ForeignKey('airports.code'))
     departure_time = Column(DateTime, nullable=False)
     arrival_time = Column(DateTime, nullable=False)
-    aircraft_id = Column(Integer, ForeignKey('aircraft.id'))
+    aircraft_id = Column(Integer, ForeignKey('aircrafts.id'))
     status = Column(Enum(FlightStatus), default=FlightStatus.SCHEDULED)
     base_price = Column(Float, nullable=False)
     departure_airport = relationship("Airport", foreign_keys=[departure_airport_code], back_populates="departing_flights")
@@ -93,7 +86,7 @@ class Flight(Base):
     crew_assignments = relationship("CrewAssignment", back_populates="flight")
 
 class Passenger(Base):
-    __tablename__ = 'passenger'
+    __tablename__ = 'passengers'
     id = Column(Integer, primary_key=True)
     first_name = Column(String(50), nullable=False)
     last_name = Column(String(50), nullable=False)
@@ -103,12 +96,13 @@ class Passenger(Base):
     bookings = relationship("Booking", back_populates="passenger")
 
 class Booking(Base):
-    __tablename__ = 'booking'
+    __tablename__ = 'bookings'
     id = Column(Integer, primary_key=True)
-    flight_id = Column(Integer, ForeignKey('flight.id'))
-    passenger_id = Column(Integer, ForeignKey('passenger.id'))
+    flight_id = Column(Integer, ForeignKey('flights.id'))
+    passenger_id = Column(Integer, ForeignKey('passengers.id'))
     booking_date = Column(DateTime)
     seat_class = Column(String(20))
     status = Column(String(20))
+    final_price = Column(Float)  # Added final_price field
     flight = relationship("Flight", back_populates="bookings")
     passenger = relationship("Passenger", back_populates="bookings")

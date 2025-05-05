@@ -1,7 +1,6 @@
 # presentation/windows/dashboard.py
 import tkinter as tk
-from tkinter import ttk
-
+from tkinter import ttk, messagebox
 from database.models import UserRole
 
 
@@ -33,6 +32,9 @@ class Dashboard(ttk.Frame):
                 ("Crew Management", self.open_crew_window),
                 ("Reports", self.open_reports_window)
             ])
+        # Staff-only buttons
+        elif self.controller.current_user.role == UserRole.STAFF:
+            buttons.append(("Reports", self.open_reports_window))
 
         for text, command in buttons:
             btn = ttk.Button(
@@ -53,16 +55,25 @@ class Dashboard(ttk.Frame):
         ).pack(pady=20)
 
     def open_flight_window(self):
-        self.controller.show_window('FlightWindow')
+        if self.controller.current_user.role in [UserRole.ADMIN, UserRole.STAFF]:
+            self.controller.show_window('FlightWindow')
+        else:
+            messagebox.showwarning("Access Denied", "You don't have permission to access Flight Management")
 
     def open_booking_window(self):
         self.controller.show_window('BookingWindow')
 
     def open_crew_window(self):
-        self.controller.show_window('CrewWindow')
+        if self.controller.current_user.role == UserRole.ADMIN:
+            self.controller.show_window('CrewWindow')
+        else:
+            messagebox.showwarning("Access Denied", "Only administrators can access Crew Management")
 
     def open_reports_window(self):
-        self.controller.show_window('ReportsWindow')
+        if self.controller.current_user.role in [UserRole.ADMIN, UserRole.STAFF]:
+            self.controller.show_window('ReportsWindow')
+        else:
+            messagebox.showwarning("Access Denied", "You don't have permission to access Reports")
 
     def logout(self):
         self.controller.current_user = None

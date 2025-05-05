@@ -1,6 +1,9 @@
-from pymongo import MongoClient
+# data_access/analytics_dao.py (updated)
 from datetime import datetime, timedelta
-from typing import List, Dict
+from typing import Dict, List
+
+from pymongo import MongoClient
+
 from config import settings
 
 
@@ -35,7 +38,7 @@ class AnalyticsDAO:
         ]
         return list(self.db.bookings.aggregate(pipeline))
 
-    def get_popular_routes(self, limit: int) -> List[Dict]:
+    def get_popular_routes(self, limit: int = 5) -> List[Dict]:
         pipeline = [
             {"$group": {
                 "_id": "$route",
