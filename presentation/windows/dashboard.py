@@ -1,4 +1,8 @@
+# presentation/windows/dashboard.py
+import tkinter as tk
 from tkinter import ttk
+
+from database.models import UserRole
 
 
 class Dashboard(ttk.Frame):
@@ -11,18 +15,24 @@ class Dashboard(ttk.Frame):
         main_frame = ttk.Frame(self, padding=20)
         main_frame.pack(fill="both", expand=True)
 
-        # Center the content using an inner frame
         center_frame = ttk.Frame(main_frame)
         center_frame.pack(expand=True)
 
-        ttk.Label(center_frame, text="SkyLink Dashboard", font=('Arial', 16)).pack(pady=20)
+        ttk.Label(center_frame, text="SkyLink Dashboard",
+                  style="Title.TLabel").pack(pady=20)
 
+        # Common buttons for all users
         buttons = [
             ("Flight Management", self.open_flight_window),
-            ("Booking Management", self.open_booking_window),
-            ("Crew Management", self.open_crew_window),
-            ("Reports", self.open_reports_window)
+            ("Booking Management", self.open_booking_window)
         ]
+
+        # Admin-only buttons
+        if self.controller.current_user.role == UserRole.ADMIN:
+            buttons.extend([
+                ("Crew Management", self.open_crew_window),
+                ("Reports", self.open_reports_window)
+            ])
 
         for text, command in buttons:
             btn = ttk.Button(
@@ -34,16 +44,26 @@ class Dashboard(ttk.Frame):
             )
             btn.pack(pady=10, ipady=5)
 
-    def open_booking_window(self):
-        self.controller.show_window('BookingWindow')
+        # Logout button
+        ttk.Button(
+            center_frame,
+            text="Logout",
+            command=self.logout,
+            style="Warning.TButton"
+        ).pack(pady=20)
 
     def open_flight_window(self):
         self.controller.show_window('FlightWindow')
 
+    def open_booking_window(self):
+        self.controller.show_window('BookingWindow')
+
     def open_crew_window(self):
-        from presentation.windows.crew_window import CrewWindow
         self.controller.show_window('CrewWindow')
 
     def open_reports_window(self):
-        from presentation.windows.reports_window import ReportsWindow
         self.controller.show_window('ReportsWindow')
+
+    def logout(self):
+        self.controller.current_user = None
+        self.controller.show_window('AuthWindow')

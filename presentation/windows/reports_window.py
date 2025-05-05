@@ -1,11 +1,18 @@
 # presentation/windows/reports_window.py
-from tkinter import ttk
-from tkinter import messagebox
+import tkinter as tk
+from tkinter import ttk, messagebox
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from database.models import Booking, Flight, Airport
 from config import settings
 from pymongo import MongoClient
+from presentation.plotly_chart import PlotlyChart
+
+
+
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
 class ReportsWindow(ttk.Frame):
@@ -16,40 +23,23 @@ class ReportsWindow(ttk.Frame):
         self.create_widgets()
 
         # MongoDB connection
-        self.mongo_client = MongoClient(settings.MONGODB_URI)
-        self.analytics_db = self.mongo_client["skylink_analytics"]
+        self.client = MongoClient(settings.MONGODB_URI)
+        self.db = self.client["skylink_analytics"]
 
     def create_widgets(self):
         main_frame = ttk.Frame(self, padding=20)
         main_frame.pack(fill="both", expand=True)
 
-        ttk.Label(main_frame, text="Analytics Reports", style="Title.TLabel").pack(pady=10)
+        ttk.Label(main_frame, text="Analytics Dashboard", style="Title.TLabel").pack(pady=10)
 
         # Notebook for different reports
         self.notebook = ttk.Notebook(main_frame)
         self.notebook.pack(fill="both", expand=True, pady=10)
 
-        # Booking Trends tab
-        trends_frame = ttk.Frame(self.notebook)
-        self.notebook.add(trends_frame, text="Booking Trends")
-
-        # Popular Routes tab
-        routes_frame = ttk.Frame(self.notebook)
-        self.notebook.add(routes_frame, text="Popular Routes")
-
-        # Flight Occupancy tab
-        occupancy_frame = ttk.Frame(self.notebook)
-        self.notebook.add(occupancy_frame, text="Flight Occupancy")
-
-        # Revenue tab
-        revenue_frame = ttk.Frame(self.notebook)
-        self.notebook.add(revenue_frame, text="Revenue Analysis")
-
-        # Setup each tab
-        self.setup_trends_tab(trends_frame)
-        self.setup_routes_tab(routes_frame)
-        self.setup_occupancy_tab(occupancy_frame)
-        self.setup_revenue_tab(revenue_frame)
+        # Create tabs
+        self.create_booking_trends_tab()
+        self.create_route_analysis_tab()
+        self.create_flight_occupancy_tab()
 
         # Back button
         ttk.Button(
@@ -58,352 +48,316 @@ class ReportsWindow(ttk.Frame):
             command=lambda: self.controller.show_window('Dashboard')
         ).pack(pady=10)
 
-    def setup_trends_tab(self, parent):
-        frame = ttk.Frame(parent, padding=10)
-        frame.pack(fill="both", expand=True)
+    def create_booking_trends_tab(self):
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="Booking Trends")
 
-        # Days selection
-        days_frame = ttk.Frame(frame)
-        days_frame.pack(pady=10)
+        # Controls frame
+        controls = ttk.Frame(tab)
+        controls.pack(pady=10)
 
-        ttk.Label(days_frame, text="Days to analyze:").pack(side="left")
-        self.trend_days = ttk.Combobox(days_frame, values=[7, 14, 30, 60, 90], state="readonly")
-        self.trend_days.pack(side="left", padx=5)
-        self.trend_days.current(2)  # Default to 30 days
+        ttk.Label(controls, text="Time Period:").pack(side="left")
+        self.period = ttk.Combobox(
+            controls,
+            values=["7 days", "14 days", "30 days", "90 days"],
+            state="readonly"
+        )
+        self.period.pack(side="left", padx=5)
+        self.period.current(2)  # Default to 30 days
 
         ttk.Button(
-            days_frame,
-            text="Generate Report",
-            command=self.generate_trends_report,
+            controls,
+            text="Generate",
+            command=lambda: self.update_booking_trends(tab),
             style="Accent.TButton"
         ).pack(side="left", padx=5)
 
         # Chart frame
-        self.trend_chart_frame = ttk.Frame(frame)
+        self.trend_chart_frame = ttk.Frame(tab)
         self.trend_chart_frame.pack(fill="both", expand=True)
 
-    def setup_routes_tab(self, parent):
-        frame = ttk.Frame(parent, padding=10)
-        frame.pack(fill="both", expand=True)
+        # Initial load
+        self.update_booking_trends(tab)
 
-        # Limit selection
-        limit_frame = ttk.Frame(frame)
-        limit_frame.pack(pady=10)
+    def update_booking_trends(self, tab):
+        # Clear previous chart
+        for widget in self.trend_chart_frame.winfo_children():
+            widget.destroy()
 
-        ttk.Label(limit_frame, text="Top routes to show:").pack(side="left")
-        self.route_limit = ttk.Combobox(limit_frame, values=[5, 10, 15, 20], state="readonly")
-        self.route_limit.pack(side="left", padx=5)
-        self.route_limit.current(0)  # Default to 5
+        try:
+            days = int(self.period.get().split()[0])
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days)
 
-        ttk.Button(
-            limit_frame,
-            text="Generate Report",
-            command=self.generate_routes_report,
-            style="Accent.TButton"
-        ).pack(side="left", padx=5)
+            # Try MongoDB first
+            try:
+                pipeline = [
+                    {
+                        "$match": {
+                            "timestamp": {"$gte": start_date, "$lte": end_date}
+                        }
+                    },
+                    {
+                        "$group": {
+                            "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp"}},
+                            "count": {"$sum": 1},
+                            "total": {"$sum": "$price"}
+                        }
+                    },
+                    {"$sort": {"_id": 1}}
+                ]
+
+                data = list(self.db.bookings.aggregate(pipeline))
+                use_mongodb = True
+            except:
+                # Fallback to SQLite
+                bookings = self.session.query(Booking) \
+                    .filter(Booking.booking_date >= start_date) \
+                    .all()
+
+                # Process SQLite data into similar format
+                from collections import defaultdict
+                daily_data = defaultdict(lambda: {"count": 0, "total": 0.0})
+                for booking in bookings:
+                    date_str = booking.booking_date.strftime("%Y-%m-%d")
+                    daily_data[date_str]["count"] += 1
+                    daily_data[date_str]["total"] += booking.final_price or booking.flight.base_price
+
+                data = [{"_id": k, "count": v["count"], "total": v["total"]}
+                        for k, v in daily_data.items()]
+                data.sort(key=lambda x: x["_id"])
+                use_mongodb = False
+
+            if not data:
+                ttk.Label(self.trend_chart_frame, text="No data available").pack()
+                return
+
+            dates = [item["_id"] for item in data]
+            counts = [item["count"] for item in data]
+            revenue = [item["total"] for item in data]
+
+            # Create Plotly figure
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+            fig.add_trace(
+                go.Bar(
+                    x=dates,
+                    y=counts,
+                    name="Bookings",
+                    marker_color='#4682B4'
+                ),
+                secondary_y=False
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=dates,
+                    y=revenue,
+                    name="Revenue",
+                    line=dict(color='#5F9EA0', width=3)
+                ),
+                secondary_y=True
+            )
+
+            fig.update_layout(
+                title=f"Booking Trends - Last {days} Days ({'MongoDB' if use_mongodb else 'SQLite'})",
+                xaxis_title="Date",
+                yaxis_title="Number of Bookings",
+                yaxis2_title="Revenue ($)",
+                template="plotly_white",
+                height=500
+            )
+
+            # Display in Tkinter
+            chart = PlotlyChart(self.trend_chart_frame, fig)
+            chart.pack(fill="both", expand=True)
+
+        except Exception as e:
+            ttk.Label(self.trend_chart_frame, text=f"Error: {str(e)}").pack()
+
+    def create_route_analysis_tab(self):
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="Route Analysis")
 
         # Chart frame
-        self.route_chart_frame = ttk.Frame(frame)
+        self.route_chart_frame = ttk.Frame(tab)
         self.route_chart_frame.pack(fill="both", expand=True)
 
-    def setup_occupancy_tab(self, parent):
-        frame = ttk.Frame(parent, padding=10)
-        frame.pack(fill="both", expand=True)
+        # Initial load
+        self.update_route_analysis(tab)
 
-        ttk.Label(frame, text="Flight Occupancy Report", style="Subtitle.TLabel").pack(pady=10)
+    def update_route_analysis(self, tab):
+        for widget in self.route_chart_frame.winfo_children():
+            widget.destroy()
 
-        # Flight selection
-        flight_frame = ttk.Frame(frame)
-        flight_frame.pack(pady=10)
+        try:
+            # Try MongoDB first
+            try:
+                pipeline = [
+                    {"$group": {
+                        "_id": "$route",
+                        "count": {"$sum": 1},
+                        "avg_price": {"$avg": "$price"}
+                    }},
+                    {"$sort": {"count": -1}},
+                    {"$limit": 10}
+                ]
+                data = list(self.db.bookings.aggregate(pipeline))
+                use_mongodb = True
+            except:
+                # Fallback to SQLite
+                from sqlalchemy import func
+                routes = self.session.query(
+                    Flight.departure_airport_code,
+                    Flight.arrival_airport_code,
+                    func.count(Booking.id),
+                    func.avg(Booking.final_price)
+                ).join(Booking) \
+                    .group_by(Flight.departure_airport_code, Flight.arrival_airport_code) \
+                    .order_by(func.count(Booking.id).desc()) \
+                    .limit(10) \
+                    .all()
 
-        ttk.Label(flight_frame, text="Select Flight:").pack(side="left")
-        self.flight_selector = ttk.Combobox(flight_frame, state="readonly")
-        self.flight_selector.pack(side="left", padx=5)
-        self.load_flight_options()
+                data = [{
+                    "_id": f"{dep}-{arr}",
+                    "count": count,
+                    "avg_price": float(avg_price or 0)
+                } for dep, arr, count, avg_price in routes]
+                use_mongodb = False
 
-        ttk.Button(
-            flight_frame,
-            text="Generate Report",
-            command=self.generate_occupancy_report,
-            style="Accent.TButton"
-        ).pack(side="left", padx=5)
+            if not data:
+                ttk.Label(self.route_chart_frame, text="No route data available").pack()
+                return
+
+            routes = [item["_id"] for item in data]
+            counts = [item["count"] for item in data]
+            avg_prices = [item["avg_price"] for item in data]
+
+            # Create Plotly figure
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+            fig.add_trace(
+                go.Bar(
+                    x=routes,
+                    y=counts,
+                    name="Number of Bookings",
+                    marker_color='#4682B4'
+                ),
+                secondary_y=False
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=routes,
+                    y=avg_prices,
+                    name="Average Price",
+                    line=dict(color='#5F9EA0', width=3)
+                ),
+                secondary_y=True
+            )
+
+            fig.update_layout(
+                title=f"Top 10 Popular Routes ({'MongoDB' if use_mongodb else 'SQLite'})",
+                xaxis_title="Route",
+                yaxis_title="Number of Bookings",
+                yaxis2_title="Average Price ($)",
+                template="plotly_white",
+                height=500
+            )
+
+            # Display in Tkinter
+            chart = PlotlyChart(self.route_chart_frame, fig)
+            chart.pack(fill="both", expand=True)
+
+        except Exception as e:
+            ttk.Label(self.route_chart_frame, text=f"Error: {str(e)}").pack()
+
+    def create_flight_occupancy_tab(self):
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="Flight Occupancy")
 
         # Chart frame
-        self.occupancy_chart_frame = ttk.Frame(frame)
+        self.occupancy_chart_frame = ttk.Frame(tab)
         self.occupancy_chart_frame.pack(fill="both", expand=True)
 
-    def setup_revenue_tab(self, parent):
-        frame = ttk.Frame(parent, padding=10)
-        frame.pack(fill="both", expand=True)
+        # Initial load
+        self.update_flight_occupancy(tab)
 
-        ttk.Label(frame, text="Revenue Analysis", style="Subtitle.TLabel").pack(pady=10)
+    def update_flight_occupancy(self, tab):
+        for widget in self.occupancy_chart_frame.winfo_children():
+            widget.destroy()
 
-        # Time period selection
-        period_frame = ttk.Frame(frame)
-        period_frame.pack(pady=10)
-
-        ttk.Label(period_frame, text="Time Period:").pack(side="left")
-        self.revenue_period = ttk.Combobox(period_frame,
-                                           values=["Last 7 days", "Last 30 days", "Last 90 days", "Last year"],
-                                           state="readonly")
-        self.revenue_period.pack(side="left", padx=5)
-        self.revenue_period.current(1)  # Default to 30 days
-
-        ttk.Button(
-            period_frame,
-            text="Generate Report",
-            command=self.generate_revenue_report,
-            style="Accent.TButton"
-        ).pack(side="left", padx=5)
-
-        # Chart frame
-        self.revenue_chart_frame = ttk.Frame(frame)
-        self.revenue_chart_frame.pack(fill="both", expand=True)
-
-    def load_flight_options(self):
         try:
-            from database.models import Flight
-            flights = self.session.query(Flight).order_by(Flight.flight_number).all()
-            options = [f"{f.flight_number} ({f.departure_airport_code}-{f.arrival_airport_code})" for f in flights]
-            self.flight_selector['values'] = options
-            if options:
-                self.flight_selector.current(0)
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to load flight options: {str(e)}")
+            flights = self.session.query(Flight) \
+                .order_by(Flight.departure_time.desc()) \
+                .limit(10) \
+                .all()
 
-    def generate_trends_report(self):
-        try:
-            days = int(self.trend_days.get())
-
-            # Get data from MongoDB
-            pipeline = [
-                {
-                    "$match": {
-                        "timestamp": {
-                            "$gte": datetime.now() - timedelta(days=days)
-                        }
-                    }
-                },
-                {
-                    "$group": {
-                        "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp"}},
-                        "count": {"$sum": 1},
-                        "total_revenue": {"$sum": "$price"}
-                    }
-                },
-                {"$sort": {"_id": 1}}
-            ]
-
-            results = list(self.analytics_db.bookings.aggregate(pipeline))
-
-            if not results:
-                messagebox.showinfo("Info", "No booking data available for the selected period")
+            if not flights:
+                ttk.Label(self.occupancy_chart_frame, text="No flight data available").pack()
                 return
 
-            # Prepare data for chart
-            dates = [item["_id"] for item in results]
-            counts = [item["count"] for item in results]
-            revenues = [item["total_revenue"] for item in results]
+            flight_nums = []
+            capacities = []
+            bookings = []
+            occupancy_rates = []
 
-            # Clear previous chart
-            for widget in self.trend_chart_frame.winfo_children():
-                widget.destroy()
+            for flight in flights:
+                flight_nums.append(flight.flight_number)
+                capacities.append(flight.aircraft.capacity)
+                bookings.append(len(flight.bookings))
+                occupancy_rates.append((len(flight.bookings) / flight.aircraft.capacity) * 100)
 
-            # Create figure
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
+            # Create Plotly figure
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-            # Bookings chart
-            ax1.bar(dates, counts, color='#4682b4')
-            ax1.set_title(f"Daily Bookings (Last {days} Days)")
-            ax1.set_ylabel("Number of Bookings")
-            ax1.tick_params(axis='x', rotation=45)
+            fig.add_trace(
+                go.Bar(
+                    x=flight_nums,
+                    y=capacities,
+                    name="Capacity",
+                    marker_color='#D3D3D3'
+                ),
+                secondary_y=False
+            )
 
-            # Revenue chart
-            ax2.plot(dates, revenues, marker='o', color='#5f9ea0')
-            ax2.set_title(f"Daily Revenue (Last {days} Days)")
-            ax2.set_ylabel("Revenue ($)")
-            ax2.tick_params(axis='x', rotation=45)
+            fig.add_trace(
+                go.Bar(
+                    x=flight_nums,
+                    y=bookings,
+                    name="Booked",
+                    marker_color='#4682B4'
+                ),
+                secondary_y=False
+            )
 
-            plt.tight_layout()
+            fig.add_trace(
+                go.Scatter(
+                    x=flight_nums,
+                    y=occupancy_rates,
+                    name="Occupancy Rate",
+                    line=dict(color='#FFA500', width=3)
+                ),
+                secondary_y=True
+            )
 
-            # Embed in Tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.trend_chart_frame)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
+            fig.update_layout(
+                title="Flight Occupancy (Last 10 Flights)",
+                xaxis_title="Flight Number",
+                yaxis_title="Number of Seats",
+                yaxis2_title="Occupancy Rate (%)",
+                template="plotly_white",
+                barmode='overlay',
+                height=500
+            )
 
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to generate trends report: {str(e)}")
-
-    def generate_routes_report(self):
-        try:
-            limit = int(self.route_limit.get())
-
-            # Get data from MongoDB
-            pipeline = [
-                {"$group": {
-                    "_id": {"route": "$route"},
-                    "count": {"$sum": 1},
-                    "average_price": {"$avg": "$price"}
-                }},
-                {"$sort": {"count": -1}},
-                {"$limit": limit}
-            ]
-
-            results = list(self.analytics_db.bookings.aggregate(pipeline))
-
-            if not results:
-                messagebox.showinfo("Info", "No route data available")
-                return
-
-            # Prepare data for chart
-            routes = [item["_id"]["route"] for item in results]
-            counts = [item["count"] for item in results]
-            avg_prices = [item["average_price"] for item in results]
-
-            # Clear previous chart
-            for widget in self.route_chart_frame.winfo_children():
-                widget.destroy()
-
-            # Create figure
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
-
-            # Popularity chart
-            ax1.bar(routes, counts, color='#4682b4')
-            ax1.set_title(f"Top {limit} Popular Routes")
-            ax1.set_ylabel("Number of Bookings")
-            ax1.tick_params(axis='x', rotation=45)
-
-            # Price chart
-            ax2.bar(routes, avg_prices, color='#5f9ea0')
-            ax2.set_title(f"Average Prices by Route")
-            ax2.set_ylabel("Average Price ($)")
-            ax2.tick_params(axis='x', rotation=45)
-
-            plt.tight_layout()
-
-            # Embed in Tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.route_chart_frame)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
+            # Display in Tkinter
+            chart = PlotlyChart(self.occupancy_chart_frame, fig)
+            chart.pack(fill="both", expand=True)
 
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to generate routes report: {str(e)}")
-
-    def generate_occupancy_report(self):
-        try:
-            flight_str = self.flight_selector.get()
-            if not flight_str:
-                messagebox.showwarning("Warning", "Please select a flight first")
-                return
-
-            flight_number = flight_str.split(" ")[0]
-
-            # Get flight details from SQLite
-            from database.models import Flight, Booking
-            flight = self.session.query(Flight).filter(Flight.flight_number == flight_number).first()
-
-            if not flight:
-                messagebox.showerror("Error", "Flight not found")
-                return
-
-            # Get bookings for this flight
-            bookings = self.session.query(Booking).filter(Booking.flight_id == flight.id).count()
-
-            # Calculate occupancy
-            capacity = flight.aircraft.capacity
-            occupancy_rate = (bookings / capacity) * 100
-
-            # Clear previous chart
-            for widget in self.occupancy_chart_frame.winfo_children():
-                widget.destroy()
-
-            # Create figure
-            fig, ax = plt.subplots(figsize=(8, 4))
-
-            # Occupancy chart
-            labels = ['Occupied', 'Available']
-            sizes = [bookings, capacity - bookings]
-            colors = ['#4682b4', '#5f9ea0']
-
-            ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
-            ax.axis('equal')
-            ax.set_title(f"Occupancy for Flight {flight_number}\n({bookings}/{capacity} seats booked)")
-
-            plt.tight_layout()
-
-            # Embed in Tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.occupancy_chart_frame)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
-
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to generate occupancy report: {str(e)}")
-
-    def generate_revenue_report(self):
-        try:
-            period = self.revenue_period.get()
-
-            if period == "Last 7 days":
-                days = 7
-            elif period == "Last 30 days":
-                days = 30
-            elif period == "Last 90 days":
-                days = 90
-            else:  # Last year
-                days = 365
-
-            # Get data from MongoDB
-            pipeline = [
-                {
-                    "$match": {
-                        "timestamp": {
-                            "$gte": datetime.now() - timedelta(days=days)
-                        }
-                    }
-                },
-                {
-                    "$group": {
-                        "_id": {"$dateToString": {"format": "%Y-%m", "date": "$timestamp"}},
-                        "total_revenue": {"$sum": "$price"}
-                    }
-                },
-                {"$sort": {"_id": 1}}
-            ]
-
-            results = list(self.analytics_db.bookings.aggregate(pipeline))
-
-            if not results:
-                messagebox.showinfo("Info", "No revenue data available for the selected period")
-                return
-
-            # Prepare data for chart
-            months = [item["_id"] for item in results]
-            revenues = [item["total_revenue"] for item in results]
-
-            # Clear previous chart
-            for widget in self.revenue_chart_frame.winfo_children():
-                widget.destroy()
-
-            # Create figure
-            fig, ax = plt.subplots(figsize=(8, 4))
-
-            # Revenue chart
-            ax.bar(months, revenues, color='#4682b4')
-            ax.set_title(f"Monthly Revenue ({period})")
-            ax.set_ylabel("Revenue ($)")
-            ax.tick_params(axis='x', rotation=45)
-
-            plt.tight_layout()
-
-            # Embed in Tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.revenue_chart_frame)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
-
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to generate revenue report: {str(e)}")
+            ttk.Label(self.occupancy_chart_frame, text=f"Error: {str(e)}").pack()
 
     def __del__(self):
-        # Close MongoDB connection when window is closed
-        if hasattr(self, 'mongo_client'):
-            self.mongo_client.close()
+        if hasattr(self, 'client'):
+            self.client.close()

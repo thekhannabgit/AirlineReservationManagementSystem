@@ -1,28 +1,22 @@
 # presentation/windows/auth_window.py
 import tkinter as tk
 from tkinter import ttk, messagebox
-from hashlib import sha256
-from database.models import User
+from database.models import UserRole
 from business_logic.auth_services import AuthService
+
 
 class AuthWindow(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
-        self.auth_service = AuthService(controller.session)
         self.create_widgets()
 
     def create_widgets(self):
-        # Main frame
         main_frame = ttk.Frame(self, padding=20)
         main_frame.pack(expand=True)
 
-        # Title
-        ttk.Label(
-            main_frame,
-            text="SkyLink Airways",
-            style="Title.TLabel"
-        ).grid(row=0, column=0, pady=20, columnspan=2)
+        ttk.Label(main_frame, text="SkyLink Airways",
+                  style="Title.TLabel").grid(row=0, column=0, pady=20, columnspan=2)
 
         # Notebook for login/register tabs
         self.notebook = ttk.Notebook(main_frame)
@@ -88,60 +82,16 @@ class AuthWindow(ttk.Frame):
             messagebox.showwarning("Validation", "Username and password are required")
             return
 
-        user, message = self.auth_service.authenticate_user(username, password)
-
-        if user:
-            self.controller.current_user = user
-            self.controller.show_window('Dashboard')
-        else:
-            messagebox.showerror("Error", message)
-
-    def register(self):
-        username = self.register_username.get()
-        password = self.register_password.get()
-        confirm = self.register_confirm.get()
-        email = self.register_email.get()
-
-        if not username or not password or not confirm or not email:
-            messagebox.showwarning("Validation", "All fields are required")
-            return
-
-        if password != confirm:
-            messagebox.showwarning("Validation", "Passwords do not match")
-            return
-
-        success, message = self.auth_service.register_user(username, password, email)
-
-        if success:
-            messagebox.showinfo("Success", message)
-            self.notebook.select(0)  # Switch to login tab
-        else:
-            messagebox.showerror("Error", message)
-
-    '''def login(self):
-        username = self.login_username.get()
-        password = self.login_password.get()
-
-        if not username or not password:
-            messagebox.showwarning("Validation", "Username and password are required")
-            return
-
         try:
-            # Hash the password
-            hashed_password = sha256(password.encode()).hexdigest()
-
-            # Check credentials
-            user = self.session.query(User).filter(
-                User.username == username,
-                User.password == hashed_password
-            ).first()
+            auth_service = AuthService(self.controller.session)
+            user, message = auth_service.authenticate_user(username, password)
 
             if user:
                 self.controller.current_user = user
+                self.controller.init_other_windows()
                 self.controller.show_window('Dashboard')
             else:
-                messagebox.showerror("Error", "Invalid username or password")
-
+                messagebox.showerror("Error", message)
         except Exception as e:
             messagebox.showerror("Error", f"Login failed: {str(e)}")
 
@@ -160,34 +110,21 @@ class AuthWindow(ttk.Frame):
             return
 
         try:
-            # Check if username exists
-            if self.session.query(User).filter(User.username == username).first():
-                messagebox.showwarning("Validation", "Username already exists")
-                return
-
-            # Check if email exists
-            if self.session.query(User).filter(User.email == email).first():
-                messagebox.showwarning("Validation", "Email already registered")
-                return
-
-            # Hash the password
-            hashed_password = sha256(password.encode()).hexdigest()
-
-            # Create new user
-            user = User(
+            auth_service = AuthService(self.controller.session)
+            success, message = auth_service.register_user(
                 username=username,
-                password=hashed_password,
+                password=password,
                 email=email,
-                role="user"
+                role=UserRole.USER  # Explicitly set to regular user
             )
 
-            self.session.add(user)
-            self.session.commit()
-
-            messagebox.showinfo("Success", "Registration successful. Please login.")
-            self.notebook.select(0)  # Switch to login tab
-
+            if success:
+                messagebox.showinfo("Success", message)
+                self.notebook.select(0)  # Switch to login tab
+                self.login_username.delete(0, tk.END)
+                self.login_username.insert(0, username)
+                self.login_password.focus()
+            else:
+                messagebox.showerror("Error", message)
         except Exception as e:
-            self.session.rollback()
-            messagebox.showerror("Error", f"Registration failed: {str(e)}")'''
-
+            messagebox.showerror("Error", f"Registration failed: {str(e)}")

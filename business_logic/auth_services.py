@@ -1,6 +1,9 @@
 # business_logic/auth_services.py
 from hashlib import sha256
 from typing import Optional, Tuple
+
+from sqlalchemy.exc import SQLAlchemyError
+
 from database.models import User, UserRole
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
@@ -53,7 +56,32 @@ class AuthService:
     def __init__(self, session):
         self.session = session
 
-    def register_user(self, username, password, email, role=UserRole.USER):
+    def register_user(self, username, password, email, role=UserRole.USER):  # Default to USER role
+        """Register a new user with USER role by default"""
+        try:
+            if self.session.query(User).filter(User.username == username).first():
+                return False, "Username already exists"
+
+            if self.session.query(User).filter(User.email == email).first():
+                return False, "Email already registered"
+
+            user = User(
+                username=username,
+                password=self._hash_password(password),
+                email=email,
+                role=role,  # Explicitly set role
+                is_active=True
+            )
+
+            self.session.add(user)
+            self.session.commit()
+            return True, "Registration successful"
+
+        except SQLAlchemyError as e:
+            self.session.rollback()
+            return False, f"Database error: {str(e)}"
+
+    '''def register_user(self, username, password, email, role=UserRole.USER):
         # Check if username exists
         if self.session.query(User).filter(User.username == username).first():
             return False, "Username already exists"
@@ -72,7 +100,7 @@ class AuthService:
 
         self.session.add(user)
         self.session.commit()
-        return True, "Registration successful"
+        return True, "Registration successful"'''
 
     def authenticate_user(self, username: str, password: str) -> Tuple[Optional[User], str]:
         """

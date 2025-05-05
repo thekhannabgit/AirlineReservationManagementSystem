@@ -1,9 +1,9 @@
 # presentation/windows/booking_window.py
 import tkinter as tk
 from tkinter import ttk, messagebox
-from presentation.dialogs.booking_dialog import BookingDialog
-from database.models import Flight, Airport, FlightStatus, Booking, Passenger
-from tkinter import simpledialog
+from datetime import datetime
+from database.models import Flight, Airport, Booking, Passenger
+
 
 class BookingWindow(ttk.Frame):
     def __init__(self, parent, controller):
@@ -12,10 +12,9 @@ class BookingWindow(ttk.Frame):
         self.session = controller.session
         self.create_widgets()
         self.load_flights()
-        self.load_bookings()
+        self.load_my_bookings()
 
     def create_widgets(self):
-        # Main container
         main_frame = ttk.Frame(self, padding=20)
         main_frame.pack(fill="both", expand=True)
 
@@ -23,115 +22,15 @@ class BookingWindow(ttk.Frame):
         self.notebook = ttk.Notebook(main_frame)
         self.notebook.pack(fill="both", expand=True)
 
-        # Flights tab
-        flights_frame = ttk.Frame(self.notebook, padding=10)
+        # Available Flights tab
+        flights_frame = ttk.Frame(self.notebook)
+        self.create_flights_tab(flights_frame)
         self.notebook.add(flights_frame, text="Available Flights")
 
-        # Bookings tab
-        bookings_frame = ttk.Frame(self.notebook, padding=10)
+        # My Bookings tab
+        bookings_frame = ttk.Frame(self.notebook)
+        self.create_bookings_tab(bookings_frame)
         self.notebook.add(bookings_frame, text="My Bookings")
-
-        # Available Flights Treeview
-        ttk.Label(flights_frame, text="Available Flights", style="Subtitle.TLabel").pack(pady=10)
-
-        tree_frame = ttk.Frame(flights_frame)
-        tree_frame.pack(fill="both", expand=True)
-
-        self.flight_tree = ttk.Treeview(
-            tree_frame,
-            columns=("flight", "departure", "arrival", "time", "status", "price"),
-            show="headings",
-            height=10
-        )
-
-        # Configure columns
-        self.flight_tree.heading("flight", text="Flight #")
-        self.flight_tree.heading("departure", text="From")
-        self.flight_tree.heading("arrival", text="To")
-        self.flight_tree.heading("time", text="Departure Time")
-        self.flight_tree.heading("status", text="Status")
-        self.flight_tree.heading("price", text="Price ($)")
-
-        self.flight_tree.column("flight", width=100, anchor=tk.CENTER)
-        self.flight_tree.column("departure", width=150, anchor=tk.W)
-        self.flight_tree.column("arrival", width=150, anchor=tk.W)
-        self.flight_tree.column("time", width=150, anchor=tk.CENTER)
-        self.flight_tree.column("status", width=100, anchor=tk.CENTER)
-        self.flight_tree.column("price", width=100, anchor=tk.CENTER)
-
-        # Add scrollbar
-        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.flight_tree.yview)
-        self.flight_tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        self.flight_tree.pack(side="left", fill="both", expand=True)
-
-        # Book button
-        btn_frame = ttk.Frame(flights_frame)
-        btn_frame.pack(pady=10)
-
-        ttk.Button(
-            btn_frame,
-            text="Book Selected Flight",
-            command=self.book_flight,
-            style="Accent.TButton"
-        ).pack(side="left", padx=5)
-
-        ttk.Button(
-            btn_frame,
-            text="Refresh",
-            command=self.load_flights
-        ).pack(side="left", padx=5)
-
-        # My Bookings Treeview
-        ttk.Label(bookings_frame, text="My Bookings", style="Subtitle.TLabel").pack(pady=10)
-
-        bookings_tree_frame = ttk.Frame(bookings_frame)
-        bookings_tree_frame.pack(fill="both", expand=True)
-
-        self.bookings_tree = ttk.Treeview(
-            bookings_tree_frame,
-            columns=("id", "flight", "date", "class", "status", "price"),
-            show="headings",
-            height=10
-        )
-
-        # Configure columns
-        self.bookings_tree.heading("id", text="Booking ID")
-        self.bookings_tree.heading("flight", text="Flight #")
-        self.bookings_tree.heading("date", text="Booking Date")
-        self.bookings_tree.heading("class", text="Class")
-        self.bookings_tree.heading("status", text="Status")
-        self.bookings_tree.heading("price", text="Price ($)")
-
-        self.bookings_tree.column("id", width=80, anchor=tk.CENTER)
-        self.bookings_tree.column("flight", width=100, anchor=tk.CENTER)
-        self.bookings_tree.column("date", width=150, anchor=tk.CENTER)
-        self.bookings_tree.column("class", width=120, anchor=tk.CENTER)
-        self.bookings_tree.column("status", width=100, anchor=tk.CENTER)
-        self.bookings_tree.column("price", width=100, anchor=tk.CENTER)
-
-        # Add scrollbar
-        bookings_scrollbar = ttk.Scrollbar(bookings_tree_frame, orient="vertical", command=self.bookings_tree.yview)
-        self.bookings_tree.configure(yscrollcommand=bookings_scrollbar.set)
-        bookings_scrollbar.pack(side="right", fill="y")
-        self.bookings_tree.pack(side="left", fill="both", expand=True)
-
-        # Booking management buttons
-        bookings_btn_frame = ttk.Frame(bookings_frame)
-        bookings_btn_frame.pack(pady=10)
-
-        ttk.Button(
-            bookings_btn_frame,
-            text="Cancel Booking",
-            command=self.cancel_booking,
-            style="Accent.TButton"
-        ).pack(side="left", padx=5)
-
-        ttk.Button(
-            bookings_btn_frame,
-            text="Refresh",
-            command=self.load_bookings
-        ).pack(side="left", padx=5)
 
         # Back button
         ttk.Button(
@@ -140,61 +39,156 @@ class BookingWindow(ttk.Frame):
             command=lambda: self.controller.show_window('Dashboard')
         ).pack(pady=10)
 
+    def create_flights_tab(self, parent):
+        frame = ttk.Frame(parent, padding=10)
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(frame, text="Available Flights", style="Subtitle.TLabel").pack(pady=10)
+
+        # Treeview
+        self.flight_tree = ttk.Treeview(
+            frame,
+            columns=("flight", "departure", "arrival", "time", "status", "price"),
+            show="headings",
+            height=10
+        )
+
+        # Configure columns
+        columns = [
+            ("flight", "Flight #", 100),
+            ("departure", "From", 150),
+            ("arrival", "To", 150),
+            ("time", "Departure", 150),
+            ("status", "Status", 100),
+            ("price", "Price ($)", 100)
+        ]
+
+        for col_id, heading, width in columns:
+            self.flight_tree.heading(col_id, text=heading)
+            self.flight_tree.column(col_id, width=width, anchor=tk.CENTER)
+
+        # Add scrollbar
+        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=self.flight_tree.yview)
+        self.flight_tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        self.flight_tree.pack(side="left", fill="both", expand=True, pady=10)
+
+        # Book button
+        ttk.Button(
+            frame,
+            text="Book Selected Flight",
+            command=self.book_flight,
+            style="Accent.TButton"
+        ).pack(pady=10)
+
+    def create_bookings_tab(self, parent):
+        frame = ttk.Frame(parent, padding=10)
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(frame, text="My Bookings", style="Subtitle.TLabel").pack(pady=10)
+
+        # Treeview
+        self.bookings_tree = ttk.Treeview(
+            frame,
+            columns=("id", "flight", "date", "status", "class", "price"),
+            show="headings",
+            height=10
+        )
+
+        # Configure columns
+        columns = [
+            ("id", "Booking ID", 80),
+            ("flight", "Flight", 120),
+            ("date", "Booking Date", 150),
+            ("status", "Status", 100),
+            ("class", "Class", 100),
+            ("price", "Price ($)", 100)
+        ]
+
+        for col_id, heading, width in columns:
+            self.bookings_tree.heading(col_id, text=heading)
+            self.bookings_tree.column(col_id, width=width, anchor=tk.CENTER)
+
+        # Add scrollbar
+        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=self.bookings_tree.yview)
+        self.bookings_tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        self.bookings_tree.pack(side="left", fill="both", expand=True, pady=10)
+
+        # Button frame
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(pady=10)
+
+        ttk.Button(
+            btn_frame,
+            text="Cancel Booking",
+            command=self.cancel_booking,
+            style="Warning.TButton"
+        ).pack(side="left", padx=5)
+
+        ttk.Button(
+            btn_frame,
+            text="Refresh",
+            command=self.load_my_bookings
+        ).pack(side="left", padx=5)
+
     def load_flights(self):
-        # Clear existing data
-        for item in self.flight_tree.get_children():
-            self.flight_tree.delete(item)
+        """Load available flights into the treeview"""
+        self.flight_tree.delete(*self.flight_tree.get_children())
 
         try:
-            # Load flights with airport information
+            # Get current datetime for filtering future flights
+            now = datetime.now()
+
             flights = self.session.query(Flight) \
                 .join(Airport, Flight.departure_airport_code == Airport.code) \
-                .filter(Flight.status == FlightStatus.SCHEDULED) \
+                .filter(
+                Flight.status == "Scheduled",
+                Flight.departure_time > now
+            ) \
+                .order_by(Flight.departure_time.asc()) \
                 .all()
 
-            if not flights:
-                messagebox.showinfo("Information", "No scheduled flights available")
-                return
-
             for flight in flights:
+                # Get arrival airport details
+                arrival_airport = self.session.query(Airport) \
+                    .filter(Airport.code == flight.arrival_airport_code) \
+                    .first()
+
                 self.flight_tree.insert("", "end", values=(
                     flight.flight_number,
                     f"{flight.departure_airport.code} ({flight.departure_airport.city})",
-                    f"{flight.arrival_airport.code} ({flight.arrival_airport.city})",
+                    f"{arrival_airport.code} ({arrival_airport.city})",
                     flight.departure_time.strftime("%Y-%m-%d %H:%M"),
-                    flight.status.value,
-                    f"${flight.base_price:.2f}"
+                    flight.status,
+                    f"{flight.base_price:.2f}"
                 ))
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load flights: {str(e)}")
 
-    def load_bookings(self):
-        # Clear existing data
-        for item in self.bookings_tree.get_children():
-            self.bookings_tree.delete(item)
+    def load_my_bookings(self):
+        """Load current user's bookings"""
+        self.bookings_tree.delete(*self.bookings_tree.get_children())
+
+        if not self.controller.current_user:
+            return
 
         try:
-            # For demo purposes, we'll show all bookings
-            # In a real app, you'd filter by the logged-in user
             bookings = self.session.query(Booking) \
                 .join(Flight) \
-                .join(Passenger) \
+                .filter(Booking.passenger_id == self.controller.current_user.id) \
                 .order_by(Booking.booking_date.desc()) \
                 .all()
-
-            if not bookings:
-                messagebox.showinfo("Information", "No bookings found")
-                return
 
             for booking in bookings:
                 self.bookings_tree.insert("", "end", values=(
                     booking.id,
                     booking.flight.flight_number,
                     booking.booking_date.strftime("%Y-%m-%d %H:%M"),
-                    booking.seat_class,
                     booking.status,
-                    f"${booking.final_price if booking.final_price else booking.flight.base_price:.2f}"
+                    booking.seat_class,
+                    f"{(booking.final_price or booking.flight.base_price):.2f}"
                 ))
 
         except Exception as e:
@@ -207,33 +201,31 @@ class BookingWindow(ttk.Frame):
             return
 
         flight_data = self.flight_tree.item(selected)['values']
+        from presentation.dialogs.booking_dialog import BookingDialog
         BookingDialog(
             self,
             self.session,
             flight_data[0],  # flight number
             flight_data[4],  # status
-            float(flight_data[5][1:]),  # base price (remove $ and convert to float)
-            callback=self.load_bookings
+            float(flight_data[5][1:]),  # price
+            callback=self.load_my_bookings
         )
 
     def cancel_booking(self):
         selected = self.bookings_tree.focus()
         if not selected:
-            messagebox.showwarning("Error", "Please select a booking first")
+            messagebox.showwarning("Error", "Please select a booking to cancel")
             return
 
-        booking_data = self.bookings_tree.item(selected)['values']
-        booking_id = booking_data[0]
+        booking_id = self.bookings_tree.item(selected)['values'][0]
 
         try:
-            booking = self.session.query(Booking).filter(Booking.id == booking_id).first()
+            booking = self.session.query(Booking).get(booking_id)
             if booking:
                 booking.status = "Cancelled"
                 self.session.commit()
-                messagebox.showinfo("Success", "Booking cancelled successfully")
-                self.load_bookings()
-            else:
-                messagebox.showerror("Error", "Booking not found")
+                messagebox.showinfo("Success", "Booking cancelled")
+                self.load_my_bookings()
         except Exception as e:
             self.session.rollback()
             messagebox.showerror("Error", f"Failed to cancel booking: {str(e)}")
