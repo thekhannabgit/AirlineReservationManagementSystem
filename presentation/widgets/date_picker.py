@@ -1,4 +1,3 @@
-# presentation/widgets/date_picker.py
 import tkinter as tk
 from tkinter import ttk
 from tkcalendar import Calendar
@@ -22,15 +21,14 @@ class DatePicker(ttk.Frame):
             width=3
         ).pack(side=tk.LEFT)
 
-    '''def show_calendar(self):
+    def show_calendar(self):
         top = tk.Toplevel(self)
         top.title("Select Date")
 
         cal = Calendar(
             top,
             selectmode='day',
-            date_pattern='yyyy-mm-dd',
-            firstweekday='sunday'
+            date_pattern='yyyy-mm-dd'
         )
         cal.pack(pady=10)
 
@@ -40,45 +38,14 @@ class DatePicker(ttk.Frame):
             except:
                 pass
 
-        ttk.Button(
-            top,
-            text="OK",
-            command=lambda: self.set_date(cal, top)
-        ).pack(pady=5)
-    
-
-    def set_date(self, cal, top):
-        self.date_var.set(cal.get_date())
-        top.destroy()'''
-
-    def set_date(self, date_str=None):
-        """Set date from either calendar or direct input"""
-        if date_str:
-            self.date_var.set(date_str)
-        else:
-            self.date_var.set(self.cal.get_date())
-
-    def show_calendar(self):
-        top = tk.Toplevel(self)
-        top.title("Select Date")
-
-        self.cal = Calendar(
-            top,
-            selectmode='day',
-            date_pattern='yyyy-mm-dd'
-        )
-        self.cal.pack(pady=10)
-
-        if self.date_var.get():
-            try:
-                self.cal.selection_set(datetime.strptime(self.date_var.get(), "%Y-%m-%d"))
-            except:
-                pass
+        def set_date():
+            self.date_var.set(cal.get_date())
+            top.destroy()
 
         ttk.Button(
             top,
             text="OK",
-            command=lambda: [self.set_date(), top.destroy()]
+            command=set_date
         ).pack(pady=5)
 
     def get_date(self):

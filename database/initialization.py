@@ -1,4 +1,4 @@
-# database/initialization.py (updated)
+# database/initialization.py
 import os
 from datetime import datetime, timedelta
 
