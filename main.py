@@ -10,6 +10,10 @@ def main():
         print("Initializing database...")
         engine = initialize_database()
 
+        # Initialize MongoDB analytics data
+        from database.sample_analytics import create_sample_analytics
+        create_sample_analytics()
+
         # Verify connection using ORM
         Session = sessionmaker(bind=engine)
         session = Session()

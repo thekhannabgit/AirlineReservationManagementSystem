@@ -1,7 +1,7 @@
 # presentation/dialogs/flight_dialog.py
 import tkinter as tk
 from tkinter import ttk, messagebox
-from database.models import Flight
+from database.models import Flight, FlightStatus
 from datetime import datetime, timedelta
 from presentation.widgets.date_picker import DatePicker
 
@@ -63,7 +63,7 @@ class FlightDialog(tk.Toplevel):
         # Configure grid weights
         main_frame.columnconfigure(1, weight=1)
 
-    def save_flight(self):
+    '''def save_flight(self):
         try:
             # Combine date and time
             departure_datetime = datetime.strptime(
@@ -86,4 +86,42 @@ class FlightDialog(tk.Toplevel):
             self.callback()
             self.destroy()
         except Exception as e:
+            messagebox.showerror("Error", f"Failed to save flight: {str(e)}")'''
+
+    def save_flight(self):
+        try:
+            # Combine date and time
+            departure_datetime = datetime.strptime(
+                f"{self.departure_time.get_date()} {self.time_entry.get()}",
+                "%Y-%m-%d %H:%M"
+            )
+
+            # Check if flight number exists
+            existing = self.session.query(Flight) \
+                .filter(Flight.flight_number == self.flight_number.get()) \
+                .first()
+            if existing:
+                messagebox.showerror("Error", "Flight number already exists")
+                return
+
+            flight = Flight(
+                flight_number=self.flight_number.get(),
+                departure_airport_code=self.departure_airport.get(),
+                arrival_airport_code=self.arrival_airport.get(),
+                departure_time=departure_datetime,
+                arrival_time=departure_datetime + timedelta(hours=7),  # Default 7-hour flight
+                aircraft_id=1,  # Default aircraft
+                base_price=float(self.base_price.get()),
+                status=FlightStatus.SCHEDULED
+            )
+
+            self.session.add(flight)
+            self.session.commit()
+            self.callback()
+            self.destroy()
+
+        except ValueError as e:
+            messagebox.showerror("Error", f"Invalid input: {str(e)}")
+        except Exception as e:
+            self.session.rollback()
             messagebox.showerror("Error", f"Failed to save flight: {str(e)}")

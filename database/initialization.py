@@ -7,7 +7,7 @@ from sqlalchemy.orm import sessionmaker
 
 from business_logic.auth_services import AuthService
 from database import Base
-from database.models import User, Airport, Aircraft, Flight, FlightStatus, UserRole
+from database.models import User, Airport, Aircraft, Flight, FlightStatus, UserRole, Passenger
 
 
 def initialize_database():
@@ -74,6 +74,14 @@ def initialize_database():
             email="admin@skylink.com",
             role=UserRole.ADMIN
         )
+        passenger = Passenger(
+            first_name="Admin",
+            last_name="User",
+            email="admin@skylink.com",
+            phone="1234567890",
+            passport_number="ADMIN123"
+        )
+        session.add(passenger)
 
         session.commit()
 

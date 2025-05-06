@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
-from database.models import Flight, Airport, Booking, Passenger
+from database.models import Flight, Airport, Booking, Passenger, FlightStatus
 
 
 class BookingWindow(ttk.Frame):
@@ -46,6 +46,10 @@ class BookingWindow(ttk.Frame):
 
         ttk.Label(frame, text="Available Flights",
                   style="Subtitle.TLabel").pack(pady=10)
+
+        # Treeview with selection style
+        style = ttk.Style()
+        style.map('Treeview', background=[('selected', '#347083')])  # Blue selection color
 
         # Treeview
         self.flight_tree = ttk.Treeview(
@@ -148,7 +152,8 @@ class BookingWindow(ttk.Frame):
             flights = self.session.query(Flight) \
                 .join(Airport, Flight.departure_airport_code == Airport.code) \
                 .filter(
-                Flight.status == "Scheduled",
+                Flight.status == FlightStatus.SCHEDULED
+,
                 Flight.departure_time > now
             ) \
                 .order_by(Flight.departure_time.asc()) \
@@ -172,6 +177,49 @@ class BookingWindow(ttk.Frame):
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load flights: {str(e)}")
 
+    '''def load_my_bookings(self):
+        self.bookings_tree.delete(*self.bookings_tree.get_children())
+
+        if not self.controller.current_user:
+            return
+
+        try:
+            # Find or create passenger for current user
+            passenger = self.session.query(Passenger) \
+                .filter(Passenger.email == self.controller.current_user.email) \
+                .first()
+
+            if not passenger:
+                # Create new passenger record if none exists
+                passenger = Passenger(
+                    first_name=self.controller.current_user.username,
+                    last_name="",
+                    email=self.controller.current_user.email,
+                    phone="",
+                    passport_number=""
+                )
+                self.session.add(passenger)
+                self.session.commit()
+
+            bookings = self.session.query(Booking) \
+                .join(Flight) \
+                .filter(Booking.passenger_id == passenger.id) \
+                .order_by(Booking.booking_date.desc()) \
+                .all()
+
+            for booking in bookings:
+                self.bookings_tree.insert("", "end", values=(
+                    booking.id,
+                    booking.flight.flight_number,
+                    booking.booking_date.strftime("%Y-%m-%d %H:%M"),
+                    booking.status,
+                    booking.seat_class,
+                    f"{(booking.final_price or booking.flight.base_price):.2f}"
+                ))
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load bookings: {str(e)}")'''
+
     def load_my_bookings(self):
         """Load current user's bookings"""
         self.bookings_tree.delete(*self.bookings_tree.get_children())
@@ -180,30 +228,44 @@ class BookingWindow(ttk.Frame):
             return
 
         try:
-            # Get passenger by current user's email
+            # Get or create passenger record for current user
             passenger = self.session.query(Passenger) \
                 .filter(Passenger.email == self.controller.current_user.email) \
                 .first()
 
-            if passenger:
-                bookings = self.session.query(Booking) \
-                    .join(Flight) \
-                    .filter(Booking.passenger_id == passenger.id) \
-                    .order_by(Booking.booking_date.desc()) \
-                    .all()
+            if not passenger:
+                # Create new passenger if doesn't exist
+                passenger = Passenger(
+                    first_name=self.controller.current_user.username,
+                    last_name="",
+                    email=self.controller.current_user.email,
+                    phone="",
+                    passport_number=""
+                )
+                self.session.add(passenger)
+                self.session.commit()
 
-                for booking in bookings:
-                    self.bookings_tree.insert("", "end", values=(
-                        booking.id,
-                        booking.flight.flight_number,
-                        booking.booking_date.strftime("%Y-%m-%d %H:%M"),
-                        booking.status,
-                        booking.seat_class,
-                        f"{(booking.final_price or booking.flight.base_price):.2f}"
-                    ))
+            # Get all bookings for this passenger
+            bookings = self.session.query(Booking) \
+                .join(Flight) \
+                .filter(Booking.passenger_id == passenger.id) \
+                .order_by(Booking.booking_date.desc()) \
+                .all()
+
+            for booking in bookings:
+                self.bookings_tree.insert("", "end", values=(
+                    booking.id,
+                    booking.flight.flight_number,
+                    booking.booking_date.strftime("%Y-%m-%d %H:%M"),
+                    booking.status,
+                    booking.seat_class,
+                    f"{(booking.final_price or booking.flight.base_price):.2f}"
+                ))
 
         except Exception as e:
+            self.session.rollback()
             messagebox.showerror("Error", f"Failed to load bookings: {str(e)}")
+            print(f"Error loading bookings: {e}")
 
     def book_flight(self):
         selected = self.flight_tree.focus()

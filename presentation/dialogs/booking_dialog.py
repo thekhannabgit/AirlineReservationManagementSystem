@@ -67,6 +67,8 @@ class BookingDialog(tk.Toplevel):  # Changed from ttk.Toplevel to tk.Toplevel
                 messagebox.showerror("Error", "Flight not found")
                 return
 
+
+
             # Create passenger
             passenger = Passenger(
                 first_name=self.entries['first_name'].get(),
@@ -92,6 +94,11 @@ class BookingDialog(tk.Toplevel):  # Changed from ttk.Toplevel to tk.Toplevel
             messagebox.showinfo("Success", f"Booking confirmed!\nReference: {booking.id}")
             self.callback()
             self.destroy()
+
+            messagebox.showinfo("Success", f"Booking confirmed!\nReference: {booking.id}")
+            self.callback()  # This refreshes the bookings list
+            self.destroy()
+
 
         except Exception as e:
             self.session.rollback()
