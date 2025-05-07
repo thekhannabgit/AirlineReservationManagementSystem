@@ -1,45 +1,45 @@
-# main.py
 from database.initialization import initialize_database
 from sqlalchemy.orm import sessionmaker
 from presentation.app import AirlineApp
-from sqlalchemy import text
+from database.sample_analytics import create_sample_analytics
+from pymongo import MongoClient
+from config import settings
+import sys
 
 
 def main():
+    session = None  # Initialize session variable
     try:
         print("Initializing database...")
         engine = initialize_database()
 
-        # Initialize MongoDB analytics data
-        from database.sample_analytics import create_sample_analytics
+        print("Creating sample analytics data...")
         create_sample_analytics()
 
-        # Verify connection using ORM
+        # Test MongoDB connection
+        try:
+            client = MongoClient(settings.MONGODB_URI)
+            db = client["skylink_analytics"]
+            print("MongoDB test connection successful!")
+            print(f"Available collections: {db.list_collection_names()}")
+            client.close()
+        except Exception as e:
+            print(f"MongoDB test connection failed: {e}")
+
+        # Create SQLAlchemy session
         Session = sessionmaker(bind=engine)
         session = Session()
-
-        # Check if flights exist using ORM - query all flights first
-        from database.models import Flight
-        all_flights = session.query(Flight).all()
-        print(f"Database initialized successfully. Found {len(all_flights)} flights.")
-
-        # If you specifically want to check if any flights exist
-        first_flight = session.query(Flight).first()
-        if first_flight:
-            print(f"First flight: {first_flight.flight_number}")
-        else:
-            print("No flights found in database")
 
         print("Starting application...")
         app = AirlineApp(session)
         app.mainloop()
 
     except Exception as e:
-        print(f"Application failed to start: {e}")
+        print(f"Application failed to start: {e}", file=sys.stderr)
         import traceback
-        traceback.print_exc()
+        traceback.print_exc(file=sys.stderr)
     finally:
-        if 'session' in locals():
+        if session is not None:  # Properly check if session exists
             session.close()
         print("Application shutdown")
 

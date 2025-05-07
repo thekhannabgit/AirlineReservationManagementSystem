@@ -1,7 +1,9 @@
+# database/sample_analytics.py (updated)
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 from config import settings
 import random
+import time
 
 
 def create_sample_analytics():
@@ -20,9 +22,9 @@ def create_sample_analytics():
         ("LHR", "DXB")
     ]
 
-    # Generate 30 days of booking data
-    for i in range(30):
-        date = datetime.now() - timedelta(days=30 - i)
+    # Generate 90 days of booking data
+    for i in range(90):
+        date = datetime.now() - timedelta(days=90 - i)
 
         # Create 5-20 bookings per day
         for _ in range(random.randint(5, 20)):
@@ -45,5 +47,5 @@ def create_sample_analytics():
                 "timestamp": date
             })
 
-    print("Created sample analytics data")
+    print("Created sample analytics data with 90 days of booking history")
     client.close()
