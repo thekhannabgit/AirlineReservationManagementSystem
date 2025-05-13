@@ -1,4 +1,3 @@
-# presentation/windows/crew_window.py
 import tkinter as tk
 from tkinter import ttk, messagebox
 from database.models import Crew, CrewRole

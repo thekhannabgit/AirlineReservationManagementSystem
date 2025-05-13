@@ -13,6 +13,10 @@ class BookingWindow(ttk.Frame):
         self.load_flights()
         self.load_my_bookings()
 
+    def on_show(self):
+        self.load_my_bookings()
+        self.load_flights()
+
     def create_widgets(self):
         main_frame = ttk.Frame(self, padding=20)
         main_frame.pack(fill="both", expand=True)

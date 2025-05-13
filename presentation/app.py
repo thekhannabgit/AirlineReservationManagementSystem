@@ -1,4 +1,3 @@
-# presentation/app.py
 import tkinter as tk
 from tkinter import ttk
 from presentation.styles import configure_styles

@@ -1,9 +1,10 @@
-# presentation/windows/auth_window.py
 import tkinter as tk
 from tkinter import ttk, messagebox
+
+from sqlalchemy.exc import NoResultFound
+
 from database.models import UserRole
 from business_logic.auth_services import AuthService
-
 
 class AuthWindow(ttk.Frame):
     def __init__(self, parent, controller):

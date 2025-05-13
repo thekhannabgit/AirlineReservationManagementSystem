@@ -1,4 +1,3 @@
-# database/models.py
 import datetime
 from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Boolean, Enum
 from sqlalchemy.orm import relationship

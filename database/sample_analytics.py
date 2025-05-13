@@ -1,4 +1,3 @@
-# database/sample_analytics.py (updated)
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 from config import settings

@@ -43,6 +43,12 @@ def main():
             session.close()
         print("Application shutdown")
 
+def show_window(self, name):
+    window = self.windows.get(name)
+    if window:
+        if hasattr(window, "on_show"):
+            window.on_show()  # Refreshes data
+        window.tkraise()
 
 if __name__ == "__main__":
     main()

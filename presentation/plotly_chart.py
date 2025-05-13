@@ -1,4 +1,3 @@
-# presentation/plotly_chart.py
 import tkinter as tk
 from tkinter import ttk
 import plotly.graph_objects as go

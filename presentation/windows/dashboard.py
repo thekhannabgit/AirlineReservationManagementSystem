@@ -1,4 +1,3 @@
-# presentation/windows/dashboard.py
 import tkinter as tk
 from tkinter import ttk, messagebox
 from database.models import UserRole

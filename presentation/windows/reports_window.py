@@ -1,4 +1,3 @@
-# presentation/windows/reports_window.py
 import tkinter as tk
 from tkinter import ttk, messagebox
 import plotly.graph_objects as go
