@@ -38,9 +38,9 @@ def db_session():
 def test_make_booking_success(db_session):
     service = BookingService(db_session)
     passenger_data = {
-        'first_name': 'John',
-        'last_name': 'Doe',
-        'email': 'john@example.com',
+        'first_name': 'Shawn',
+        'last_name': 'Michaels',
+        'email': 'Shawn@mail.com',
         'phone': '1234567890',
         'passport_number': 'AB123456'
     }
@@ -48,7 +48,7 @@ def test_make_booking_success(db_session):
     booking = service.make_booking(1, passenger_data, "Economy")
     assert booking is not None
     assert booking.id is not None
-    assert booking.passenger.first_name == 'John'
+    assert booking.passenger.first_name == 'Shawn'
     assert booking.flight.flight_number == 'SK101'
     assert booking.status == 'Confirmed'
 
@@ -56,9 +56,9 @@ def test_make_booking_success(db_session):
 def test_make_booking_flight_full(db_session):
     service = BookingService(db_session)
     passenger_data = {
-        'first_name': 'John',
-        'last_name': 'Doe',
-        'email': 'john@example.com',
+        'first_name': 'Shawn',
+        'last_name': 'Michaels',
+        'email': 'Shawn@mail.com',
         'phone': '1234567890',
         'passport_number': 'AB123456'
     }

@@ -34,9 +34,9 @@ def test_create_booking(db_session):
     db_session.commit()
 
     passenger_data = {
-        'first_name': 'John',
-        'last_name': 'Doe',
-        'email': 'john@test.com',
+        'first_name': 'Shawn',
+        'last_name': 'Michaels',
+        'email': 'Shawn@mail.com',
         'phone': '1234567890',
         'passport_number': 'TEST123456'
     }

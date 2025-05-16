@@ -1,3 +1,4 @@
+
 import os
 from datetime import datetime, timedelta
 
@@ -9,6 +10,20 @@ from database import Base
 from database.models import User, Airport, Aircraft, Flight, FlightStatus, UserRole, Passenger
 
 
+def execute_sql_schema(engine):
+    schema_file = os.path.abspath('database/schema.sql')
+    with open(schema_file, 'r') as file:
+        ddl_statements = file.read()
+
+    raw_conn = engine.raw_connection()
+    try:
+        cursor = raw_conn.cursor()
+        cursor.executescript(ddl_statements)
+        raw_conn.commit()
+    finally:
+        raw_conn.close()
+
+
 def initialize_database():
     # Ensure the database directory exists
     os.makedirs('database', exist_ok=True)
@@ -17,8 +32,8 @@ def initialize_database():
     db_path = os.path.abspath('database/skylink_db.sqlite')
     engine = create_engine(f'sqlite:///{db_path}')
 
-    # Create all tables
-    Base.metadata.create_all(engine)
+    # Execute raw schema SQL file to create tables
+    execute_sql_schema(engine)
 
     Session = sessionmaker(bind=engine)
     session = Session()
@@ -79,6 +94,25 @@ def initialize_database():
             email="admin@skylink.com",
             phone="1234567890",
             passport_number="ADMIN123"
+        )
+        session.add(passenger)
+
+        session.commit()
+
+        # Create crew user
+        auth_service = AuthService(session)
+        auth_service.register_user(
+            username="crew",
+            password="crew123",
+            email="crew@skylink.com",
+            role=UserRole.STAFF
+        )
+        passenger = Passenger(
+            first_name="Crew",
+            last_name="User",
+            email="crew@skylink.com",
+            phone="2234567890",
+            passport_number="CREW123"
         )
         session.add(passenger)
 

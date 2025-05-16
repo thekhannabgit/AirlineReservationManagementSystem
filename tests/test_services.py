@@ -64,9 +64,9 @@ def test_booking_service_create_booking(db_session):
 
     booking_data = {
         'flight_id': 1,
-        'first_name': 'John',
-        'last_name': 'Doe',
-        'email': 'john@example.com',
+        'first_name': 'Shawn',
+        'last_name': 'Michaels',
+        'email': 'Shawn@mail.com',
         'phone': '1234567890',
         'passport_number': 'AB123456',
         'seat_class': 'Economy',
@@ -82,7 +82,7 @@ def test_crew_service_assign_crew(db_session):
     from database.models import Crew
 
     # Add test crew member
-    crew = Crew(name="Sarah Smith", role="Pilot", email="sarah@skylink.com")
+    crew = Crew(name="Farah Sm", role="Pilot", email="farah@skylink.com")
     db_session.add(crew)
     db_session.commit()
 

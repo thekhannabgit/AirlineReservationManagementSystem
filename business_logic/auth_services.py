@@ -189,3 +189,15 @@ class AuthService:
                 role=UserRole.ADMIN
             )
             print("Admin user created successfully")
+
+    def create_crew_user(self):
+        """Create initial admin user if not exists"""
+        admin = self.session.query(User).filter(User.username == "crew").first()
+        if not admin:
+            self.register_user(
+                username="crew",
+                password="crew123",
+                email="crew@skylink.com",
+                role=UserRole.STAFF
+            )
+            print("Crew user created successfully")
